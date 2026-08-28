@@ -1,0 +1,19 @@
+services:
+  datanodes:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: datanodes-pro-extractor
+    restart: unless-stopped
+    ports:
+      - "8000:8000"
+    shm_size: "2gb" # Crucial for multi-browser headless Chrome concurrency
+    environment:
+      - PORT=8000
+      - HEADLESS=true
+      - PYTHONUNBUFFERED=1
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "20m"
+        max-file: "3"

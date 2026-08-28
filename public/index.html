@@ -1,0 +1,254 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>DataNodes Pro Link Extractor</title>
+    <meta name="description" content="High-performance automated DataNodes direct download link extractor with stealth browser automation and real-time telemetry.">
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;600&family=Outfit:wght@500;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div class="app-container">
+        <!-- Top Navigation Header -->
+        <header class="app-header">
+            <div class="header-brand">
+                <div class="logo-icon">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"></polygon>
+                    </svg>
+                </div>
+                <div class="brand-text">
+                    <h1>DATANODES <span class="badge-pro">PRO EXTRACTOR</span></h1>
+                    <p class="subtitle">Stealth CDP Browser & Puppeteer Engine</p>
+                </div>
+            </div>
+
+            <div class="header-status">
+                <div id="wsStatusBadge" class="status-indicator disconnected">
+                    <span class="status-dot"></span>
+                    <span id="wsStatusText" class="status-label">Connecting...</span>
+                </div>
+                <div class="engine-badge">
+                    <span class="engine-tag">SELENIUMBASE CDP + PUPPETEER</span>
+                </div>
+            </div>
+        </header>
+
+        <!-- Main Workspace Grid -->
+        <main class="main-grid">
+            <!-- Left Column: Input & Controls -->
+            <section class="panel panel-config">
+                <div class="panel-header">
+                    <div class="panel-title">
+                        <svg class="panel-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+                            <polyline points="14 2 14 8 20 8"></polyline>
+                            <line x1="16" y1="13" x2="8" y2="13"></line>
+                            <line x1="16" y1="17" x2="8" y2="17"></line>
+                            <polyline points="10 9 9 9 8 9"></polyline>
+                        </svg>
+                        <h2>Input Links</h2>
+                    </div>
+                    <div class="input-actions">
+                        <label for="fileUploadInput" class="btn-ghost btn-sm" title="Import links from .txt file">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+                                <polyline points="17 8 12 3 7 8"></polyline>
+                                <line x1="12" y1="3" x2="12" y2="15"></line>
+                            </svg>
+                            <span>Import File</span>
+                            <input type="file" id="fileUploadInput" accept=".txt" hidden>
+                        </label>
+                        <button id="btnClearInput" class="btn-ghost btn-sm" title="Clear links textarea">Clear</button>
+                    </div>
+                </div>
+
+                <div class="textarea-container">
+                    <textarea id="linksTextarea" id="linksInput" placeholder="Paste DataNodes URLs here (one URL per line)...&#10;https://datanodes.to/abc123xyz&#10;https://datanodes.to/download/file456" spellcheck="false"></textarea>
+                    <div class="textarea-footer">
+                        <span id="lineCountBadge" class="counter-badge">0 links detected</span>
+                    </div>
+                </div>
+
+                <!-- Extraction Settings -->
+                <div class="settings-group">
+                    <h3 class="settings-title">Engine Configuration</h3>
+
+                    <!-- Workers Concurrency Slider (1-5, max 5) -->
+                    <div class="setting-item">
+                        <div class="setting-info">
+                            <label for="workersSlider" class="setting-label">Total Browsers (Concurrency)</label>
+                            <span class="setting-desc">Parallel stealth browser instances (Max 5)</span>
+                        </div>
+                        <div class="slider-wrapper">
+                            <input type="range" id="workersSlider" min="1" max="5" value="3" step="1">
+                            <span id="workersCountBadge" class="val-badge">3 Browsers</span>
+                        </div>
+                    </div>
+
+                    <!-- Headless Mode Toggle (Default True) -->
+                    <div class="setting-item">
+                        <div class="setting-info">
+                            <label for="headlessToggle" class="setting-label">Headless Mode</label>
+                            <span class="setting-desc">Run background browser sessions with zero display overhead</span>
+                        </div>
+                        <label class="switch">
+                            <input type="checkbox" id="headlessToggle" checked>
+                            <span class="slider round"></span>
+                        </label>
+                    </div>
+                </div>
+
+                <!-- Action Buttons -->
+                <div class="action-row">
+                    <button id="btnStartExtract" class="btn btn-primary" id="btnStart">
+                        <svg class="btn-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <polygon points="5 3 19 12 5 21 5 3"></polygon>
+                        </svg>
+                        <span>Start Extraction</span>
+                    </button>
+                    <button id="btnStopExtract" class="btn btn-danger" id="btnStop" disabled>
+                        <svg class="btn-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <rect x="6" y="6" width="12" height="12"></rect>
+                        </svg>
+                        <span>Stop</span>
+                    </button>
+                </div>
+            </section>
+
+            <!-- Right Column: Metrics, Workers Grid, Results & Logs -->
+            <section class="panel panel-monitor">
+                <!-- Metrics Bar -->
+                <div class="metrics-grid">
+                    <div class="metric-card">
+                        <div class="metric-label">Total Queue</div>
+                        <div id="statTotal" class="metric-value">0</div>
+                        <div class="metric-sub">target URLs</div>
+                    </div>
+                    <div class="metric-card">
+                        <div class="metric-label">Extracted</div>
+                        <div id="statSuccess" class="metric-value text-success">0</div>
+                        <div class="metric-sub">direct download links</div>
+                    </div>
+                    <div class="metric-card">
+                        <div class="metric-label">Failed</div>
+                        <div id="statFailed" class="metric-value text-danger">0</div>
+                        <div class="metric-sub">errors / 404s</div>
+                    </div>
+                    <div class="metric-card">
+                        <div class="metric-label">Success Rate</div>
+                        <div id="statRate" class="metric-value text-accent">0%</div>
+                        <div class="metric-sub">extraction efficiency</div>
+                    </div>
+                    <div class="metric-card">
+                        <div class="metric-label">Time Elapsed</div>
+                        <div id="statElapsed" class="metric-value">00:00</div>
+                        <div class="metric-sub"><span id="statSpeed">0.0</span> links/min</div>
+                    </div>
+                </div>
+
+                <!-- Global Progress Bar -->
+                <div class="progress-bar-container">
+                    <div id="globalProgressBar" class="progress-bar-fill" style="width: 0%;"></div>
+                </div>
+
+                <!-- Active 5-Worker Pool Monitor -->
+                <div class="workers-section">
+                    <div class="section-header">
+                        <h3>Active Browser Workers <span class="sub-label">(Slots 1 to 5)</span></h3>
+                        <span id="activeWorkersBadge" class="badge-accent">0 / 0 active</span>
+                    </div>
+                    <div id="workersGrid" class="workers-grid">
+                        <!-- Dynamic Worker Slot Cards (1 to 5) rendered by JS -->
+                    </div>
+                </div>
+
+                <!-- Results & Logs Tabs -->
+                <div class="tabbed-section">
+                    <div class="tabs-header">
+                        <div class="tabs-nav">
+                            <button id="tabBtnResults" class="tab-btn active" data-tab="resultsTab">
+                                Extracted Links <span id="resultsCountBadge" class="tab-counter">0</span>
+                            </button>
+                            <button id="tabBtnLogs" class="tab-btn" data-tab="logsTab">
+                                Live Terminal Logs <span id="logsCountBadge" class="tab-counter">0</span>
+                            </button>
+                        </div>
+
+                        <!-- Results Toolbar -->
+                        <div id="resultsToolbar" class="tab-toolbar">
+                            <div class="filter-pills">
+                                <button class="filter-pill active" data-filter="all">All</button>
+                                <button class="filter-pill" data-filter="success">Success</button>
+                                <button class="filter-pill" data-filter="failed">Failed</button>
+                            </div>
+                            <div class="export-dropdown">
+                                <button id="btnCopyAll" class="btn-secondary btn-sm" title="Copy all extracted direct links to clipboard">
+                                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                        <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
+                                        <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
+                                    </svg>
+                                    <span>Copy Links</span>
+                                </button>
+                                <button id="btnExportTxt" class="btn-secondary btn-sm" title="Download links as text file">
+                                    <span>.TXT</span>
+                                </button>
+                                <button id="btnExportIdm" class="btn-secondary btn-sm" title="Download IDM formatted batch list">
+                                    <span>IDM</span>
+                                </button>
+                                <button id="btnExportJson" class="btn-secondary btn-sm" title="Download full JSON dataset">
+                                    <span>JSON</span>
+                                </button>
+                            </div>
+                        </div>
+
+                        <!-- Logs Toolbar -->
+                        <div id="logsToolbar" class="tab-toolbar" style="display: none;">
+                            <label class="checkbox-label">
+                                <input type="checkbox" id="autoScrollLogsToggle" checked>
+                                <span>Auto-scroll</span>
+                            </label>
+                            <button id="btnClearLogs" class="btn-ghost btn-sm">Clear Terminal</button>
+                        </div>
+                    </div>
+
+                    <!-- Tab 1: Extracted Results View -->
+                    <div id="resultsTab" class="tab-content active">
+                        <div class="table-container">
+                            <div id="resultsEmptyState" class="empty-state">
+                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+                                    <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+                                    <polyline points="7 10 12 15 17 10"></polyline>
+                                    <line x1="12" y1="15" x2="12" y2="3"></line>
+                                </svg>
+                                <p>No extracted links yet. Paste your DataNodes links and click <strong>Start Extraction</strong>.</p>
+                            </div>
+                            <div id="resultsList" class="results-list" style="display: none;">
+                                <!-- Dynamic Items Injected by JS -->
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Tab 2: Terminal Logs View -->
+                    <div id="logsTab" class="tab-content">
+                        <div id="terminalContainer" class="terminal-view">
+                            <div class="terminal-body" id="terminalLogs">
+                                <div class="log-line system">[System] DataNodes Extractor Pro interface loaded. Ready.</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </section>
+        </main>
+    </div>
+
+    <!-- Toast Notification Container -->
+    <div id="toastContainer" class="toast-container"></div>
+
+    <script src="app.js"></script>
+</body>
+</html>

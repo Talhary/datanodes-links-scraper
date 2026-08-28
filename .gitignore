@@ -1,0 +1,14 @@
+node_modules/
+venv/
+.venv/
+__pycache__/
+*.py[cod]
+*$py.class
+downloaded_files/
+output.txt
+outputs.txt
+links.txt
+links.txt.bak
+scraper_test.py
+image.png
+.env

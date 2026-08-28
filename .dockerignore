@@ -1,0 +1,14 @@
+node_modules
+venv
+.venv
+__pycache__
+*.pyc
+*.pyo
+*.pyd
+.git
+.gitignore
+.dockerignore
+downloaded_files
+output.txt
+outputs.txt
+.env

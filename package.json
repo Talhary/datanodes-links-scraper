@@ -1,0 +1,23 @@
+{
+  "name": "datanodes-link-extractor",
+  "version": "2.0.0",
+  "description": "DataNodes Link Extractor - SeleniumBase CDP Stealth Launcher & Puppeteer Engine with Web UI",
+  "main": "puppeteer_worker.js",
+  "scripts": {
+    "start": "python server.py",
+    "cli": "python run_puppeteer.py",
+    "worker": "node puppeteer_worker.js"
+  },
+  "dependencies": {
+    "puppeteer-core": "^24.4.0"
+  },
+  "keywords": [
+    "datanodes",
+    "scraper",
+    "puppeteer",
+    "seleniumbase",
+    "turnstile"
+  ],
+  "author": "JazzDrive",
+  "license": "MIT"
+}
