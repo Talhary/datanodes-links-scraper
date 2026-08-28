@@ -171,7 +171,7 @@ class WorkerSlot:
 
 
 class ExtractionManager:
-    """Manages the full lifecycle of a batch extraction job with up to 5 concurrent browser workers."""
+    """Manages the full lifecycle of a batch extraction job with FileKeeper fast-resolver and up to 5 concurrent browser workers for DataNodes."""
 
     def __init__(self):
         self.workers: List[WorkerSlot] = []
@@ -243,7 +243,6 @@ class ExtractionManager:
             self.is_running = True
             self.should_stop = False
             self.current_job_id = str(uuid.uuid4())[:8]
-            self.total_links = len(links)
             self.completed_links = 0
             self.successful_links = 0
             self.failed_links = 0
@@ -252,7 +251,8 @@ class ExtractionManager:
                 {
                     "id": idx,
                     "originalUrl": link.strip(),
-                    "filename": link.split("/")[-1] if "/" in link else link,
+                    "service": "filekeeper" if filekeeper.is_filekeeper_url(link.strip()) else "datanodes",
+                    "filename": link.strip().split("/")[-1] if "/" in link.strip() else link.strip(),
                     "status": "pending",
                     "extractedUrl": None,
                     "error": None,
@@ -270,77 +270,108 @@ class ExtractionManager:
 
     def _run_job(self, num_workers: int, headless: bool):
         self._broadcast({"type": "job_started", "data": self.get_status()})
+        
+        fk_count = sum(1 for itm in self.items if itm["service"] == "filekeeper")
+        dn_count = self.total_links - fk_count
+
         self._broadcast({
             "type": "log",
             "worker": 0,
-            "text": f"Starting extraction job ({self.total_links} links) across {num_workers} browser worker(s)...",
+            "text": f"Starting extraction job ({self.total_links} total links: {dn_count} DataNodes, {fk_count} FileKeeper)...",
             "level": "info"
         })
 
-        base_port = 9221
-        self.workers = []
-        for i in range(num_workers):
-            if self.should_stop:
-                break
-            slot = WorkerSlot(worker_id=i + 1, port=base_port + i, headless=headless)
-            self.workers.append(slot)
-            try:
-                slot.start(on_event_cb=self._handle_worker_event)
-                time.sleep(1.0)  # Stagger startup to prevent port collisions
-            except Exception as e:
-                self._broadcast({
-                    "type": "log",
-                    "worker": i + 1,
-                    "text": f"Failed to initialize Worker {i + 1}: {e}",
-                    "level": "error"
-                })
-
-        # Wait for workers to become ready (up to 30s)
-        ready_timeout = 30
-        start_wait = time.time()
-        while time.time() - start_wait < ready_timeout and not self.should_stop:
-            if all(w.is_ready for w in self.workers if w.proc is not None):
-                break
-            time.sleep(0.5)
-
-        self._broadcast({"type": "status_update", "data": self.get_status()})
-
-        queue = list(range(len(self.items)))
-        pending_retries = []
-
-        while (queue or any(w.is_busy for w in self.workers)) and not self.should_stop:
-            # Assign idle workers to queued items
-            for worker in self.workers:
-                if not worker.is_busy and worker.is_ready and queue:
-                    item_idx = queue.pop(0)
-                    item = self.items[item_idx]
-                    item["status"] = "processing"
-                    item["worker"] = worker.worker_id
-                    item["startTime"] = time.time()
-
-                    self._broadcast({
-                        "type": "item_updated",
-                        "item": item
-                    })
-                    worker.send_task(item["originalUrl"], item_idx)
-
-            time.sleep(0.2)
-
-        # Auto-retry pass for failed items
-        failed_indices = [i for i, itm in enumerate(self.items) if itm["status"] == "failed" and itm.get("retried") is not True]
-        if failed_indices and not self.should_stop:
+        # Phase 1: Rapid HTTP Resolution for FileKeeper Links (zero browser overhead)
+        fk_indices = [i for i, itm in enumerate(self.items) if itm["service"] == "filekeeper"]
+        if fk_indices:
             self._broadcast({
                 "type": "log",
                 "worker": 0,
-                "text": f"Main extraction completed with {len(failed_indices)} failed link(s). Auto-retrying...",
-                "level": "warn"
+                "text": f"Resolving {len(fk_indices)} FileKeeper direct links via high-speed HTTP engine...",
+                "level": "info"
             })
-            for f_idx in failed_indices:
-                self.items[f_idx]["retried"] = True
-                self.items[f_idx]["status"] = "retrying"
-                queue.append(f_idx)
+            for f_idx in fk_indices:
+                if self.should_stop:
+                    break
+                item = self.items[f_idx]
+                item["status"] = "processing"
+                item["startTime"] = time.time()
+                self._broadcast({"type": "item_updated", "item": item})
+
+                res = filekeeper.resolve_filekeeper_url(item["originalUrl"])
+                success = res.get("success", False)
+                item["status"] = "success" if success else "failed"
+                item["extractedUrl"] = res.get("resolved") if success else None
+                item["error"] = res.get("error") if not success else None
+                if res.get("filename"):
+                    item["filename"] = res["filename"]
+                item["timeTaken"] = round(time.time() - item["startTime"], 2)
+
+                with self._lock:
+                    self.completed_links += 1
+                    if success:
+                        self.successful_links += 1
+                        try:
+                            with open("extracted_links.txt", "a", encoding="utf-8") as f_out:
+                                f_out.write(f"{item['extractedUrl']}\n")
+                        except Exception:
+                            pass
+                    else:
+                        self.failed_links += 1
+
+                self._broadcast({"type": "item_updated", "item": item})
+                self._broadcast({"type": "status_update", "data": self.get_status()})
+                self._broadcast({
+                    "type": "log",
+                    "worker": 0,
+                    "text": f"[FileKeeper] {'Resolved: ' + item['extractedUrl'] if success else 'Failed: ' + str(item['error'])}",
+                    "level": "success" if success else "error"
+                })
+
+        # Phase 2: Browser workers for DataNodes links
+        dn_indices = [i for i, itm in enumerate(self.items) if itm["service"] == "datanodes" and itm["status"] == "pending"]
+        
+        if dn_indices and not self.should_stop:
+            actual_workers = min(num_workers, len(dn_indices))
+            self._broadcast({
+                "type": "log",
+                "worker": 0,
+                "text": f"Launching {actual_workers} stealth browser worker(s) for DataNodes links...",
+                "level": "info"
+            })
+
+            base_port = 9221
+            self.workers = []
+            for i in range(actual_workers):
+                if self.should_stop:
+                    break
+                slot = WorkerSlot(worker_id=i + 1, port=base_port + i, headless=headless)
+                self.workers.append(slot)
+                try:
+                    slot.start(on_event_cb=self._handle_worker_event)
+                    time.sleep(1.0)  # Stagger startup to prevent port collisions
+                except Exception as e:
+                    self._broadcast({
+                        "type": "log",
+                        "worker": i + 1,
+                        "text": f"Failed to initialize Worker {i + 1}: {e}",
+                        "level": "error"
+                    })
+
+            # Wait for workers to become ready (up to 30s)
+            ready_timeout = 30
+            start_wait = time.time()
+            while time.time() - start_wait < ready_timeout and not self.should_stop:
+                if all(w.is_ready for w in self.workers if w.proc is not None):
+                    break
+                time.sleep(0.5)
+
+            self._broadcast({"type": "status_update", "data": self.get_status()})
+
+            queue = list(dn_indices)
 
             while (queue or any(w.is_busy for w in self.workers)) and not self.should_stop:
+                # Assign idle workers to queued items
                 for worker in self.workers:
                     if not worker.is_busy and worker.is_ready and queue:
                         item_idx = queue.pop(0)
@@ -348,9 +379,40 @@ class ExtractionManager:
                         item["status"] = "processing"
                         item["worker"] = worker.worker_id
                         item["startTime"] = time.time()
-                        self._broadcast({"type": "item_updated", "item": item})
+
+                        self._broadcast({
+                            "type": "item_updated",
+                            "item": item
+                        })
                         worker.send_task(item["originalUrl"], item_idx)
+
                 time.sleep(0.2)
+
+            # Auto-retry pass for failed DataNodes items
+            failed_dn = [i for i, itm in enumerate(self.items) if itm["service"] == "datanodes" and itm["status"] == "failed" and itm.get("retried") is not True]
+            if failed_dn and not self.should_stop:
+                self._broadcast({
+                    "type": "log",
+                    "worker": 0,
+                    "text": f"DataNodes extraction completed with {len(failed_dn)} failed link(s). Auto-retrying...",
+                    "level": "warn"
+                })
+                for f_idx in failed_dn:
+                    self.items[f_idx]["retried"] = True
+                    self.items[f_idx]["status"] = "retrying"
+                    queue.append(f_idx)
+
+                while (queue or any(w.is_busy for w in self.workers)) and not self.should_stop:
+                    for worker in self.workers:
+                        if not worker.is_busy and worker.is_ready and queue:
+                            item_idx = queue.pop(0)
+                            item = self.items[item_idx]
+                            item["status"] = "processing"
+                            item["worker"] = worker.worker_id
+                            item["startTime"] = time.time()
+                            self._broadcast({"type": "item_updated", "item": item})
+                            worker.send_task(item["originalUrl"], item_idx)
+                    time.sleep(0.2)
 
         # Cleanup workers
         self._shutdown_workers()
@@ -362,7 +424,7 @@ class ExtractionManager:
         self._broadcast({
             "type": "log",
             "worker": 0,
-            "text": f"Extraction job completed! Success: {self.successful_links}/{self.total_links}",
+            "text": f"Extraction job finished! Total Success: {self.successful_links}/{self.total_links}",
             "level": "success"
         })
 
@@ -397,6 +459,11 @@ class ExtractionManager:
                     self.completed_links += 1
                     if success:
                         self.successful_links += 1
+                        try:
+                            with open("extracted_links.txt", "a", encoding="utf-8") as f_out:
+                                f_out.write(f"{item['extractedUrl']}\n")
+                        except Exception:
+                            pass
                     else:
                         self.failed_links += 1
 

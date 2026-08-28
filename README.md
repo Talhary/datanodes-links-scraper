@@ -1,6 +1,6 @@
-# DataNodes Link Extractor Pro 🚀
+# DataNodes & FileKeeper Pro Link Extractor 🚀
 
-High-performance direct download link extractor for **DataNodes** (`datanodes.to`). Built with a hybrid **SeleniumBase CDP + Node.js Puppeteer** architecture, featuring an interactive Web UI dashboard, real-time WebSocket telemetry, and automated Cloudflare Turnstile bypass.
+High-performance direct download link extractor for **DataNodes** (`datanodes.to`) and **FileKeeper** (`filekeeper.net`). Built with a dual-engine architecture: a hybrid **SeleniumBase CDP + Node.js Puppeteer** pipeline for automated Cloudflare Turnstile bypass on DataNodes, alongside an ultra-fast **Direct HTTP Handshake Resolver** for FileKeeper.
 
 ---
 
@@ -71,36 +71,74 @@ The Web UI dashboard will be available at:
 
 ---
 
-## ⚠️ Important: Headless Mode Notice
+## ⚡ FileKeeper Direct Links Scraper & Resolver
+
+FileKeeper (`filekeeper.net`) sharing links lead to intermediate HTML landing pages. The integrated FileKeeper subsystem programmatically simulates the free-tier download handshake, bypassing landing pages, ad scripts, and countdown timers to obtain high-speed CDN streaming URLs (e.g., direct endpoints on `dlproxy.uk` or high-port edge servers like `:8443`) in milliseconds without requiring a browser session.
+
+```mermaid
+sequenceDiagram
+    autonumber
+    actor Client as User / Web UI / REST API
+    participant API as FastAPI Backend (/api/resolve-links)
+    participant FK as FileKeeper Engine (filekeeper.py)
+    participant Host as FileKeeper Server (filekeeper.net)
+    participant CDN as FileKeeper Direct CDN Node
+
+    Client->>API: POST /api/resolve-links (or /api/extract)
+    API->>FK: resolve_filekeeper_urls_bulk(urls)
+    Note over FK: Extract File ID ([a-zA-Z0-9]+)<br/>Check not already resolved (dlproxy.uk / :8443)
+    FK->>Host: POST /download (redirect: manual)<br/>Body: op=download2&id={id}&method_free=Free+download&down_direct=1<br/>Cookie: lang=english; file_code={id}
+    Host-->>FK: HTTP 302 Found (Location: https://s12.filekeeper.net:8443/...)
+    Note over FK: Intercept Location Header
+    FK-->>API: Direct CDN URLs
+    API-->>Client: { original, resolved, success: true }
+    Client->>CDN: Stream / Download File Directly
+```
+
+### Key FileKeeper Handshake Parameters:
+- **Endpoint**: `https://filekeeper.net/download`
+- **Payload**: `op=download2&id=<fileId>&rand=&referer=&method_free=Free+download&down_direct=1`
+- **Headers**:
+  - `Cookie: lang=english; file_code=<fileId>`
+  - `Referer: https://filekeeper.net/download`
+  - `Connection: close` (Manual HTTP 302 redirect interception)
+
+---
+
+## ⚠️ Important: Headless Mode Notice (DataNodes)
 
 > [!WARNING]
-> **Headless Mode (`headless=True`) is currently not working.**
+> **Headless Mode (`headless=True`) is currently not working for DataNodes.**
 > 
 > Cloudflare Turnstile anti-bot detection on DataNodes detects and blocks headless Chrome browser sessions. 
 > 
 > - **Default Setting**: Headless mode is set to **`False`** (headed / visible browser window).
-> - **Contributions Welcome**: If you have a working solution or stealth bypass that enables `headless=True` to pass Cloudflare Turnstile reliably, please feel free to fix it and **submit a Pull Request (PR)**!
+> - **FileKeeper Links**: Unaffected by headless settings as they resolve via direct HTTP handshakes.
+> - **Contributions Welcome**: If you have a working solution or stealth bypass that enables `headless=True` to pass Cloudflare Turnstile reliably on DataNodes, please feel free to fix it and **submit a Pull Request (PR)**!
 
 ---
 
 ## 🌟 Key Features
 
-- **Automated Cloudflare Turnstile Bypass**: Uses low-level CDP hardware mouse events, human-like motion trajectories, and child-frame DOM traversal to solve Turnstile challenges automatically.
-- **Hybrid Stealth Engine**: Combines **SeleniumBase UC/CDP Mode** for bot-detection evasion with **Node.js Puppeteer** for high-throughput DOM manipulation and CDP request interception.
-- **Deep Network Interception**: Captures direct download tokens and CDN endpoints (`dlproxy`, signature URLs) directly from Chrome DevTools Protocol network streams without waiting for secondary countdown redirects.
-- **In-Page Ad & Upsell Immunity**: Pre-injects DOM mutation hooks and ad-blocking rules that prevent popups, rogue tabs, and accidental redirects to premium upsell pages.
-- **Multi-Worker Concurrency**: Run multiple parallel browser instances simultaneously (1 to 5) with real-time worker status cards and live streaming logs.
-- **Interactive Web UI**: Modern dark-mode dashboard at `http://localhost:8000` with link queues, live progress bars, terminal logs, and one-click clipboard export.
-- **Direct Link Persistence**: Extracted direct download links are streamed live to the UI and automatically persisted to `extracted_links.txt`.
+- **Dual-Engine Architecture**:
+  - **DataNodes Engine**: Hybrid **SeleniumBase UC/CDP Mode** + **Node.js Puppeteer** with automated Cloudflare Turnstile bypass and CDP network stream interception.
+  - **FileKeeper Engine**: Ultra-fast direct HTTP 302 resolver that extracts direct CDN URLs (`dlproxy.uk`, `:8443`) in milliseconds.
+- **Deep Network Interception**: Captures direct download tokens and CDN endpoints directly without waiting for secondary countdown redirects.
+- **In-Page Ad & Upsell Immunity**: Pre-injects DOM mutation hooks and ad-blocking rules preventing popups and rogue redirects.
+- **Multi-Worker Concurrency**: Run up to 5 concurrent browser workers for DataNodes with live streaming telemetry.
+- **Interactive Web UI**: Modern dark-mode dashboard with smart URL detection, live progress bars, terminal logs, and one-click clipboard export (`Ctrl + Enter` shortcut supported).
+- **Direct Link Persistence**: Extracted direct download links are streamed live to the UI and automatically appended to `extracted_links.txt`.
+- **Multi-Format Export**: Export results to `.txt`, IDM (`.txt`), or JSON.
 
 ---
 
 ## 🖥️ Web UI Dashboard
 
-1. **Input Links**: Paste DataNodes URLs into the input textarea (or load from `links.txt`).
-2. **Configure Workers**: Select the number of concurrent browser instances (1–5) and toggle **Headless Mode** (default: `False` / Visible).
-3. **Start Extraction**: Click **Start Extraction**. Watch the live terminal logs and worker status cards in real-time.
-4. **Copy / Save Results**: Extracted direct links will appear in the output box and are automatically appended to `extracted_links.txt`.
+1. **Input Links**: Paste DataNodes or FileKeeper URLs into the input textarea (or load from `links.txt`).
+2. **Keyboard Shortcut**: Press **`Ctrl + Enter`** to trigger extraction instantly.
+3. **Configure Workers**: Select the number of concurrent browser instances (1–5) and toggle **Headless Mode** (default: `False` / Visible).
+4. **Start Extraction**: Click **Start Extraction**. FileKeeper links resolve immediately, while DataNodes links are processed by stealth browser workers.
+5. **Copy / Save Results**: Extracted direct links will appear in the output box and are automatically appended to `extracted_links.txt`.
 
 ---
 
@@ -108,10 +146,11 @@ The Web UI dashboard will be available at:
 
 ```
 DataNodes/
-├── server.py              # FastAPI + WebSocket backend & API endpoints
-├── manager.py             # Multi-browser SeleniumBase CDP orchestrator
+├── server.py              # FastAPI + WebSocket backend & REST API endpoints
+├── filekeeper.py          # Fast HTTP FileKeeper direct link resolver
+├── manager.py             # Multi-browser SeleniumBase CDP orchestrator & job manager
 ├── puppeteer_worker.js    # Node.js CDP worker (Turnstile solver, adblocker, link extractor)
-├── public/                # Web UI dashboard frontend (HTML, CSS, JS)
+├── public/                # Modern Web UI dashboard (HTML, CSS, JS)
 ├── Dockerfile             # Multi-stage container definition (Python + Node.js + Chrome)
 ├── docker-compose.yml     # Container orchestration specification
 ├── requirements.txt       # Python dependencies (SeleniumBase, FastAPI, Uvicorn, etc.)
@@ -129,22 +168,55 @@ DataNodes/
 
 | Method | Endpoint | Description |
 | :--- | :--- | :--- |
+| `POST` | `/api/resolve-links` | Bulk FileKeeper direct link resolution (`{ "urls": [...] }`). |
+| `POST` | `/api/extract` | Start unified batch extraction job (`{ "links": [...], "workers": 3, "headless": false }`). |
 | `GET` | `/api/status` | Get current extraction job state, active workers, and progress. |
-| `POST` | `/api/extract` | Start a new extraction job (`{ links: [...], workers: 3, headless: false }`). |
 | `POST` | `/api/stop` | Terminate all active workers and stop the extraction job. |
-| `GET` | `/api/extracted` | Retrieve list of all successfully extracted direct links. |
+| `GET` | `/api/export/{fmt}` | Export resolved links (`txt`, `idm`, `json`). |
 | `GET` | `/api/health` | Health check endpoint. |
+
+#### Bulk Resolve Example (`POST /api/resolve-links`)
+
+**Request**:
+```json
+{
+  "urls": [
+    "https://filekeeper.net/abc12345",
+    "https://filekeeper.net/xyz98765"
+  ]
+}
+```
+
+**Response (HTTP 200 OK)**:
+```json
+{
+  "results": [
+    {
+      "original": "https://filekeeper.net/abc12345",
+      "resolved": "https://s12.filekeeper.net:8443/d/abc12345/sample_video.mp4",
+      "success": true,
+      "filename": "sample_video.mp4"
+    },
+    {
+      "original": "https://filekeeper.net/xyz98765",
+      "resolved": "https://filekeeper.net/xyz98765",
+      "success": false,
+      "error": "HTTP 200: No direct 302 location header returned by FileKeeper."
+    }
+  ]
+}
+```
 
 ### WebSocket Endpoint
 
 - **URL**: `ws://localhost:8000/ws`
-- **Events**: Streams JSON payloads for real-time `status`, `progress`, `worker_status`, `log`, and `complete` events.
+- **Events**: Streams JSON payloads for real-time `status`, `progress`, `worker_status`, `item_updated`, `log`, and `job_completed` events.
 
 ---
 
 ## 🤝 Contributing
 
-Contributions, bug fixes, and improvements are welcome! If you can fix headless mode execution or enhance bypass reliability:
+Contributions, bug fixes, and improvements are welcome! If you can fix headless mode execution on DataNodes or enhance bypass reliability:
 
 1. Fork the repository
 2. Create your feature branch (`git checkout -b feature/headless-fix`)

@@ -10,8 +10,9 @@ from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
 
 from manager import manager
+import filekeeper
 
-app = FastAPI(title="DataNodes Link Extractor", version="2.0.0")
+app = FastAPI(title="DataNodes & FileKeeper Link Extractor Pro", version="2.5.0")
 
 # CORS middleware
 app.add_middleware(
@@ -28,9 +29,13 @@ main_event_loop: Optional[asyncio.AbstractEventLoop] = None
 
 
 class ExtractRequest(BaseModel):
-    links: List[str] = Field(..., description="List of Datanodes URLs to extract")
+    links: List[str] = Field(..., description="List of DataNodes or FileKeeper URLs to extract")
     workers: int = Field(default=3, ge=1, le=5, description="Number of parallel browser workers (1 to 5)")
     headless: bool = Field(default=False, description="Run browsers in headless mode")
+
+
+class ResolveLinksRequest(BaseModel):
+    urls: List[str] = Field(..., description="List of FileKeeper URLs to resolve directly")
 
 
 def websocket_event_forwarder(event: dict):
@@ -103,6 +108,23 @@ async def start_extraction(req: ExtractRequest):
         raise HTTPException(status_code=409, detail=str(e))
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.post("/api/resolve-links")
+async def resolve_filekeeper_links(req: ResolveLinksRequest):
+    """
+    Bulk FileKeeper link resolution endpoint matching technical documentation specification.
+    Resolves FileKeeper landing URLs in parallel using the direct HTTP handshake.
+    """
+    if not req.urls or not isinstance(req.urls, list):
+        raise HTTPException(status_code=400, detail="urls array is required")
+
+    clean_urls = [u.strip() for u in req.urls if u and u.strip()]
+    if not clean_urls:
+        return {"results": []}
+
+    results = await asyncio.to_thread(filekeeper.resolve_filekeeper_urls_bulk, clean_urls)
+    return {"results": results}
 
 
 @app.post("/api/stop")

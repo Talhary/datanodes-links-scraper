@@ -285,6 +285,11 @@
             const row = document.createElement('div');
             row.className = 'result-item';
 
+            const isFK = item.service === 'filekeeper' || (item.originalUrl && item.originalUrl.includes('filekeeper.net'));
+            const servicePill = isFK 
+                ? `<span class="service-pill filekeeper">FileKeeper</span>` 
+                : `<span class="service-pill datanodes">DataNodes</span>`;
+
             const extractedMarkup = item.extractedUrl 
                 ? `<a href="${item.extractedUrl}" target="_blank" class="item-extracted" title="${item.extractedUrl}">${item.extractedUrl}</a>`
                 : (item.error ? `<span class="item-error">${item.error}</span>` : `<span style="color: var(--text-muted); font-size: 0.78rem;">Extracting direct link...</span>`);
@@ -301,7 +306,10 @@
             row.innerHTML = `
                 <span class="item-index">#${item.id + 1}</span>
                 <div class="item-details">
-                    <div class="item-name" title="${item.originalUrl}">${item.filename}</div>
+                    <div class="item-title-row">
+                        ${servicePill}
+                        <div class="item-name" title="${item.originalUrl}">${item.filename}</div>
+                    </div>
                     ${extractedMarkup}
                 </div>
                 <div class="item-meta">
@@ -344,8 +352,16 @@
 
     // Event Listeners
     function setupEventListeners() {
-        // Textarea Link Count
+        // Textarea Link Count & Keyboard Shortcut (Ctrl/Cmd + Enter)
         elements.linksTextarea.addEventListener('input', updateLinkCount);
+        elements.linksTextarea.addEventListener('keydown', (e) => {
+            if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') {
+                e.preventDefault();
+                if (!state.isRunning) {
+                    startExtraction();
+                }
+            }
+        });
 
         // Clear Links
         elements.btnClearInput.addEventListener('click', () => {
@@ -416,8 +432,21 @@
 
     function updateLinkCount() {
         const text = elements.linksTextarea.value.trim();
-        const count = text ? text.split('\n').filter(s => s.trim().length > 0).length : 0;
-        elements.lineCountBadge.textContent = `${count} link${count !== 1 ? 's' : ''} detected`;
+        if (!text) {
+            elements.lineCountBadge.textContent = '0 links detected';
+            return;
+        }
+        const lines = text.split('\n').map(s => s.trim()).filter(Boolean);
+        const fkCount = lines.filter(l => l.toLowerCase().includes('filekeeper.net')).length;
+        const dnCount = lines.length - fkCount;
+
+        if (fkCount > 0 && dnCount > 0) {
+            elements.lineCountBadge.textContent = `${lines.length} links (${dnCount} DataNodes, ${fkCount} FileKeeper)`;
+        } else if (fkCount > 0) {
+            elements.lineCountBadge.textContent = `${lines.length} FileKeeper link${lines.length !== 1 ? 's' : ''}`;
+        } else {
+            elements.lineCountBadge.textContent = `${lines.length} DataNodes link${lines.length !== 1 ? 's' : ''}`;
+        }
     }
 
     async function startExtraction() {
@@ -425,7 +454,7 @@
         const links = raw.split('\n').map(s => s.trim()).filter(Boolean);
 
         if (links.length === 0) {
-            showToast('Please enter at least one DataNodes link.', 'error');
+            showToast('Please enter at least one DataNodes or FileKeeper link.', 'error');
             return;
         }
 
