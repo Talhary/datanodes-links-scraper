@@ -30,7 +30,7 @@ main_event_loop: Optional[asyncio.AbstractEventLoop] = None
 class ExtractRequest(BaseModel):
     links: List[str] = Field(..., description="List of Datanodes URLs to extract")
     workers: int = Field(default=3, ge=1, le=5, description="Number of parallel browser workers (1 to 5)")
-    headless: bool = Field(default=True, description="Run browsers in headless mode")
+    headless: bool = Field(default=False, description="Run browsers in headless mode")
 
 
 def websocket_event_forwarder(event: dict):
@@ -70,7 +70,7 @@ async def health_check():
         "status": "ok",
         "service": "DataNodes Link Extractor",
         "version": "2.0.0",
-        "headlessDefault": True,
+        "headlessDefault": False,
         "maxWorkers": 5
     }
 

@@ -18,7 +18,7 @@ except ImportError:
 
 
 class WorkerSlot:
-    def __init__(self, worker_id: int, port: int, headless: bool = True):
+    def __init__(self, worker_id: int, port: int, headless: bool = False):
         self.worker_id = worker_id
         self.port = port
         self.headless = headless
@@ -233,7 +233,7 @@ class ExtractionManager:
                 "items": list(self.items)
             }
 
-    def start_job(self, links: List[str], num_workers: int = 3, headless: bool = True) -> str:
+    def start_job(self, links: List[str], num_workers: int = 3, headless: bool = False) -> str:
         with self._lock:
             if self.is_running:
                 raise RuntimeError("An extraction job is already in progress.")
