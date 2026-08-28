@@ -66,6 +66,9 @@
 
     // Initialize Application
     function init() {
+        if (elements.headlessToggle) {
+            elements.headlessToggle.checked = false;
+        }
         setupWebSocket();
         setupEventListeners();
         renderWorkerSlots(parseInt(elements.workersSlider.value, 10));
