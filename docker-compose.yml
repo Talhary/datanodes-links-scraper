@@ -10,7 +10,7 @@ services:
     shm_size: "2gb" # Crucial for multi-browser headless Chrome concurrency
     environment:
       - PORT=8000
-      - HEADLESS=true
+      - HEADLESS=false
       - PYTHONUNBUFFERED=1
     logging:
       driver: "json-file"

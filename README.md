@@ -7,14 +7,17 @@ High-performance direct download link extractor for **DataNodes** (`datanodes.to
 ## 🚀 Quick Start (Local)
 
 ### 1. Windows (One-Click Launcher)
-Simply run the included batch script:
+Simply double-click or run the included batch script:
 ```bat
 .\run.bat
 ```
 The launcher will automatically:
-1. Initialize the Python virtual environment (`venv`).
-2. Verify and install any missing Python and Node.js dependencies.
-3. Start the FastAPI server and open `http://localhost:8000`.
+1. Detect Python & Node.js (and auto-install them if missing).
+2. Initialize the Python virtual environment (`venv`).
+3. Verify and install all Python (`requirements.txt`) and Node.js (`package.json`) dependencies.
+4. Launch the FastAPI server and open `http://localhost:8000` in your default browser.
+
+---
 
 ### 2. Manual Installation
 
@@ -23,7 +26,7 @@ The launcher will automatically:
 - **Node.js 18+**
 - **Google Chrome** installed on your system
 
-#### Setup
+#### Setup Steps
 ```bash
 # 1. Create and activate Python virtual environment
 python -m venv venv
@@ -44,6 +47,26 @@ python server.py
 ```
 
 Open your browser and navigate to:
+👉 **`http://localhost:8000`**
+
+---
+
+### 3. Docker Compose Deployment 🐳
+
+For containerized environments or Linux servers, use Docker Compose:
+
+```bash
+# 1. Build and start the container in detached mode
+docker compose up -d --build
+
+# 2. Monitor live application logs
+docker compose logs -f
+
+# 3. Stop the container
+docker compose down
+```
+
+The Web UI dashboard will be available at:
 👉 **`http://localhost:8000`**
 
 ---
@@ -89,11 +112,13 @@ DataNodes/
 ├── manager.py             # Multi-browser SeleniumBase CDP orchestrator
 ├── puppeteer_worker.js    # Node.js CDP worker (Turnstile solver, adblocker, link extractor)
 ├── public/                # Web UI dashboard frontend (HTML, CSS, JS)
+├── Dockerfile             # Multi-stage container definition (Python + Node.js + Chrome)
+├── docker-compose.yml     # Container orchestration specification
 ├── requirements.txt       # Python dependencies (SeleniumBase, FastAPI, Uvicorn, etc.)
 ├── package.json           # Node.js dependencies (puppeteer-core)
 ├── links.txt              # Input file for batch URL extraction
 ├── extracted_links.txt    # Output file where captured direct links are saved
-└── run.bat                # One-click Windows launcher
+└── run.bat                # One-click Windows launcher with auto-dependency installer
 ```
 
 ---

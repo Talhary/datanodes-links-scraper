@@ -10,7 +10,7 @@ ENV PYTHONUNBUFFERED=1 \
     PYTHONDONTWRITEBYTECODE=1 \
     DEBIAN_FRONTEND=noninteractive \
     PORT=8000 \
-    HEADLESS=true
+    HEADLESS=false
 
 # Install OS libraries, Xvfb, fonts, Node.js 22, and Google Chrome Stable
 RUN apt-get update && apt-get install -y --no-install-recommends \
