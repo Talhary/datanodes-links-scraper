@@ -82,7 +82,50 @@ if errorlevel 1 (
     echo [OK] Node.js is installed and configured.
 )
 
-:: 3. Setup Virtual Environment
+:: 3. Check Google Chrome installation
+set "CHROME_FOUND=0"
+if exist "%ProgramFiles%\Google\Chrome\Application\chrome.exe" set "CHROME_FOUND=1"
+if exist "%ProgramFiles(x86)%\Google\Chrome\Application\chrome.exe" set "CHROME_FOUND=1"
+if exist "%LocalAppData%\Google\Chrome\Application\chrome.exe" set "CHROME_FOUND=1"
+reg query "HKLM\SOFTWARE\Microsoft\Windows\CurrentVersion\App Paths\chrome.exe" >nul 2>nul && set "CHROME_FOUND=1"
+reg query "HKCU\SOFTWARE\Microsoft\Windows\CurrentVersion\App Paths\chrome.exe" >nul 2>nul && set "CHROME_FOUND=1"
+
+if "%CHROME_FOUND%"=="0" (
+    echo [*] Google Chrome not detected. Attempting automatic installation...
+    where winget >nul 2>nul
+    if not errorlevel 1 (
+        echo [*] Installing Google Chrome via winget...
+        winget install --id Google.Chrome --exact --accept-package-agreements --accept-source-agreements -e --silent
+    )
+    
+    if exist "%ProgramFiles%\Google\Chrome\Application\chrome.exe" set "CHROME_FOUND=1"
+    if exist "%ProgramFiles(x86)%\Google\Chrome\Application\chrome.exe" set "CHROME_FOUND=1"
+    if exist "%LocalAppData%\Google\Chrome\Application\chrome.exe" set "CHROME_FOUND=1"
+    reg query "HKLM\SOFTWARE\Microsoft\Windows\CurrentVersion\App Paths\chrome.exe" >nul 2>nul && set "CHROME_FOUND=1"
+    reg query "HKCU\SOFTWARE\Microsoft\Windows\CurrentVersion\App Paths\chrome.exe" >nul 2>nul && set "CHROME_FOUND=1"
+    
+    if "!CHROME_FOUND!"=="0" (
+        echo [*] Downloading and installing Google Chrome via PowerShell...
+        powershell -NoProfile -ExecutionPolicy Bypass -Command "$progressPreference = 'SilentlyContinue'; Write-Host '[*] Downloading Chrome installer...'; Invoke-WebRequest -Uri 'https://dl.google.com/chrome/install/latest/chrome_installer.exe' -OutFile '$env:TEMP\chrome_installer.exe'; Write-Host '[*] Installing Google Chrome...'; Start-Process '$env:TEMP\chrome_installer.exe' -ArgumentList '/silent /install' -Wait; Remove-Item '$env:TEMP\chrome_installer.exe' -ErrorAction SilentlyContinue"
+    )
+    
+    if exist "%ProgramFiles%\Google\Chrome\Application\chrome.exe" set "CHROME_FOUND=1"
+    if exist "%ProgramFiles(x86)%\Google\Chrome\Application\chrome.exe" set "CHROME_FOUND=1"
+    if exist "%LocalAppData%\Google\Chrome\Application\chrome.exe" set "CHROME_FOUND=1"
+    reg query "HKLM\SOFTWARE\Microsoft\Windows\CurrentVersion\App Paths\chrome.exe" >nul 2>nul && set "CHROME_FOUND=1"
+    reg query "HKCU\SOFTWARE\Microsoft\Windows\CurrentVersion\App Paths\chrome.exe" >nul 2>nul && set "CHROME_FOUND=1"
+    
+    if "!CHROME_FOUND!"=="0" (
+        echo [WARNING] Google Chrome could not be detected automatically.
+        echo Please ensure Google Chrome is installed from https://www.google.com/chrome/
+    ) else (
+        echo [OK] Google Chrome is installed and configured.
+    )
+) else (
+    echo [OK] Google Chrome detected.
+)
+
+:: 4. Setup Virtual Environment
 set "VENV_DIR="
 if exist "venv\Scripts\activate.bat" (
     set "VENV_DIR=venv"
@@ -102,7 +145,7 @@ if exist "venv\Scripts\activate.bat" (
 echo [*] Activating virtual environment %VENV_DIR%...
 call "%VENV_DIR%\Scripts\activate.bat"
 
-:: 4. Install/Check Python Dependencies
+:: 5. Install/Check Python Dependencies
 echo [*] Checking Python dependencies...
 if exist "requirements.txt" (
     pip install -r requirements.txt --upgrade-strategy only-if-needed --quiet
@@ -113,7 +156,7 @@ if exist "requirements.txt" (
     )
 )
 
-:: 5. Install/Check Node Dependencies
+:: 6. Install/Check Node Dependencies
 if not exist "node_modules" (
     echo [*] Installing Node.js dependencies puppeteer-core...
     call npm install --omit=dev
@@ -133,7 +176,7 @@ echo.
 :: Open browser automatically after a short delay in background
 start "" cmd /c "timeout /t 2 /nobreak >nul & start http://localhost:8000"
 
-:: 6. Launch FastAPI Server
+:: 7. Launch FastAPI Server
 python server.py
 
 pause

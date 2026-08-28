@@ -12,7 +12,7 @@ Simply double-click or run the included batch script:
 .\run.bat
 ```
 The launcher will automatically:
-1. Detect Python & Node.js (and auto-install them if missing).
+1. Detect Python, Node.js & Google Chrome (and auto-install them if missing).
 2. Initialize the Python virtual environment (`venv`).
 3. Verify and install all Python (`requirements.txt`) and Node.js (`package.json`) dependencies.
 4. Launch the FastAPI server and open `http://localhost:8000` in your default browser.
