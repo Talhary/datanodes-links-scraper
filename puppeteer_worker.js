@@ -844,7 +844,7 @@ async function main() {
         process.exit(res.success ? 0 : 1);
     } else if (isIpc) {
         // Persistent IPC mode over stdin / stdout
-        const rl = readline.createInterface({ input: process.stdin, output: process.stdout, terminal: false });
+        const rl = readline.createInterface({ input: process.stdin });
 
         rl.on('line', async (line) => {
             const trimmed = line.trim();
